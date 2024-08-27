@@ -11,6 +11,7 @@ const app = express();
 app.use(express.json());
 const saltRounds = 10;
 const salt = bcrypt.genSaltSync(saltRounds);
+  
 //1
 app.post('/users/register', async (req,res)=>{
     try{
@@ -65,49 +66,79 @@ app.post('/users/login',async (req,res)=>{
 })
 
 //3
-async function authenticateUserFromApiKey(apiKey) {
-    try {
-        const [prefix, userId, email] = apiKey.split('$');
-        if (prefix !== 'mern') return null;
-        return await UserModel.findOne({ _id: userId, email });
-    } catch (error) {
-        res.status(500).send({ message: 'Lỗi xác thực người dùng', error: error.message });
-    }   
-}   
-app.post('/posts', async (req, res) => {
-    try {
-       
+app.post('/posts',async (req,res)=>{
+    try{
         const { apiKey } = req.query;
-        if (!apiKey) throw new Error('apiKey không được cung cấp');
-
-        const user = await authenticateUserFromApiKey(apiKey);
-        if (!user) throw new Error('Xác thực người dùng thất bại');
-
-        
+        if (!apiKey) throw new Error("Chưa có API key");
         const { userId, content } = req.body;
-        if (!userId) throw new Error('userId là bắt buộc');
-        if (!content) throw new Error('Nội dung bài viết là bắt buộc');
-        const crrUser = await UserModel.findById(userId)
-        if (!crrUser) throw new Error('Người dùng không tồn tại');
-
-        
-        const createdPost = await PostModel.create({
+        if (!userId) throw new Error("userId is required");
+        if (!content) throw new Error("Bạn chưa tạo bài viết");
+        const newPost = await PostModel.create({
             postId: crypto.randomUUID(),
             userId: userId,
             content: content,
             createAt: new Date(),
-            updateAt: new Date()
-        });
-        res.status(201).send({ 
-            message: "Tạo bài viết thành công", data: createdPost
+            updateAt: new Date(),
+          });
+      
+        res.status(200).send({
+            message: "Thanh cong",
+            data: newPost,
         });
     } catch (error) {
-        res.status(500).send({ message: 'Lỗi hệ thống', error: error.message });
+        res.status(403).send({
+            message: error.message,
+            data:null
+        })
     }
-});
+})
 
 //4
+app.put('/posts/:id',async (req,res)=>{
+    const { id } = req.params;
+  const { apiKey} = req.query;
+    const {content} = req.body;
+  // Kiểm tra xem tất cả các tham số cần thiết đã được cung cấp
+  if (!apiKey) {
+    return res.status(400).send({ message: 'API Key is required' });
+  }
+  if (!content) {
+    return res.status(400).send({ message: 'Content is required' });
+  }
+  if (!id) {
+    return res.status(400).send({ message: 'Post ID is required' });
+  }
 
+  try {
+    const apiKeySchema = new mongoose.Schema({
+        key: { type: String, required: true, unique: true },
+        userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true }
+      });
+    const ApiKey = mongoose.model('ApiKey', apiKeySchema);
+      
+    const validApiKey = await ApiKey.findOne({ key: apiKey });
+
+    if (!validApiKey) {
+      return res.status(401).send({ message: 'Invalid API Key' });
+    }
+
+    // Tìm bài post theo ID
+    const post = await PostModel.findById(id);
+
+    if (!post) {
+      return res.status(404).send({ message: 'Post not found' });
+    }
+
+    // Cập nhật nội dung bài post
+    post.content = content;
+    post.updatedAt = Date.now(); // Cập nhật thời gian
+
+    await post.save();
+    res.status(200).send({ message: 'Post updated successfully', post });
+  } catch (error) {
+    res.status(500).send({ message: 'Post update failed', error });
+  }
+});
 app.listen(8080,()=>{
     console.log("Server is running")
 })
