@@ -65,6 +65,15 @@ app.post('/users/login',async (req,res)=>{
 })
 
 //3
+async function authenticateUserFromApiKey(apiKey) {
+    try {
+        const [prefix, userId, email] = apiKey.split('$');
+        if (prefix !== 'mern') return null;
+        return await UserModel.findOne({ _id: userId, email });
+    } catch (error) {
+        res.status(500).send({ message: 'Lỗi xác thực người dùng', error: error.message });
+    }   
+}   
 app.post('/posts', async (req, res) => {
     try {
        
@@ -78,13 +87,17 @@ app.post('/posts', async (req, res) => {
         const { userId, content } = req.body;
         if (!userId) throw new Error('userId là bắt buộc');
         if (!content) throw new Error('Nội dung bài viết là bắt buộc');
-
-       
         const crrUser = await UserModel.findById(userId)
         if (!crrUser) throw new Error('Người dùng không tồn tại');
 
         
-        const createdPost = await PostModel.create({ userId, content });
+        const createdPost = await PostModel.create({
+            postId: crypto.randomUUID(),
+            userId: userId,
+            content: content,
+            createAt: new Date(),
+            updateAt: new Date()
+        });
         res.status(201).send({ 
             message: "Tạo bài viết thành công", data: createdPost
         });
@@ -93,16 +106,8 @@ app.post('/posts', async (req, res) => {
     }
 });
 
+//4
 
-async function authenticateUserFromApiKey(apiKey) {
-    try {
-        const [prefix, userId, email] = apiKey.split('$');
-        if (prefix !== 'mern') return null;
-        return await UserModel.findOne({ _id: userId, email });
-    } catch (error) {
-        res.status(500).send({ message: 'Lỗi xác thực người dùng', error: error.message });
-    }   
-}   
 app.listen(8080,()=>{
     console.log("Server is running")
 })
