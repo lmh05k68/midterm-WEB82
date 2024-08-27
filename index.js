@@ -100,7 +100,7 @@ async function authenticateUserFromApiKey(apiKey) {
         if (prefix !== 'mern') return null;
         return await UserModel.findOne({ _id: userId, email });
     } catch (error) {
-        throw new Error('Lỗi xác thực người dùng: ' + error.message);
+        res.status(500).send({ message: 'Lỗi xác thực người dùng', error: error.message });
     }   
 }   
 app.listen(8080,()=>{
